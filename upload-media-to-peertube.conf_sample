@@ -1,0 +1,42 @@
+#--------------------------------------------------------------------
+# migrate-i7-media-to-peertube config file.
+#
+
+#--------------------------------------------------------------------
+# python_exe - where is your python executable.
+python_exe: /usr/bin/python3
+
+#--------------------------------------------------------------------
+# PeerTube Settings
+#--------------------------------------------------------------------
+# Instance URL - Eg. https://peertube.com
+peertube_instance:
+# Username
+peertube_username: 
+# Password
+peertube_password: 
+# The Peertube Channel ID number:
+peertube_channel: 
+
+#--------------------------------------------------------------------
+# Islandora 7 Settings
+#--------------------------------------------------------------------
+# Islandora URL - Eg. https://sample.edu
+islandora_instance:
+# Islandora username
+islandora_username:
+# Islandora user token
+islandora_token:
+
+#--------------------------------------------------------------------
+# Google Sheets Settings
+#--------------------------------------------------------------------
+# Google Credentials File location:
+google_credentials_file:
+google_sheet:
+google_sheet_name: Sheet1
+
+#--------------------------------------------------------------------
+# Log file
+log_file: /var/tmp/output.log
+

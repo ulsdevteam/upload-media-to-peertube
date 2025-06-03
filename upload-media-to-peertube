@@ -1,0 +1,655 @@
+#!/usr/bin/python3
+import yaml
+import argparse
+import os
+import pwd
+import json
+import sys
+import subprocess
+import shutil
+import logging
+import csv
+import re
+import pandas as pd
+import warnings
+import tempfile
+from pathlib import Path
+from typing import Union
+from typing import Optional
+
+warnings.filterwarnings("ignore", message="Data Validation extension is not supported")
+
+# Functions
+def get_username() -> str:
+    """
+    Retrieves the current logged-in user's username.
+
+    Returns:
+        str: The username of the current user.
+    """
+    return pwd.getpwuid(os.getuid())[0]
+
+def create_temp_dir_at_path(path: Union[str, Path]) -> str:
+    """Creates a temporary directory within the specified path.
+
+    Args:
+        path: A string or Path object specifying the parent directory where the
+              temporary directory will be created.
+
+    Returns:
+        str: The full path to the created temporary directory.
+
+    Raises:
+        TypeError: If the path argument is not a string or Path object.
+        OSError: If the parent directory does not exist, is not writable, or
+                 other filesystem-related errors occur.
+    """
+    # Type checking
+    if not isinstance(path, (str, Path)):
+        raise TypeError(f"Expected 'path' to be a string or Path object, got {type(path).__name__}")
+    
+    # Convert to Path object for consistent handling
+    path_obj = Path(path)
+    
+    # Check if the parent directory exists
+    if not path_obj.exists():
+        raise OSError(f"Parent directory does not exist: {path}")
+    
+    # Check if the parent directory is writable
+    if not os.access(path_obj, os.W_OK):
+        raise OSError(f"Parent directory is not writable: {path}")
+
+    # Create the temporary directory
+    temp_dir = tempfile.mkdtemp(dir=path_obj)
+    return str(temp_dir)
+
+
+def setup_logger(name: str, log_file: str, level: int = logging.DEBUG, 
+                 formatter: Optional[logging.Formatter] = None) -> logging.Logger:
+    """
+    Sets up a logger with the specified name, log file, and logging level.
+
+    Args:
+        name (str): The name of the logger, typically the module name (e.g., __name__).
+        log_file (str): The file path to write log messages to. Appends to the file if it exists.
+        level (int, optional): The logging level (e.g., logging.DEBUG, logging.INFO). Defaults to logging.DEBUG.
+        formatter (logging.Formatter, optional): The formatter for log messages. If None, a default formatter is used 
+            with the format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'.
+
+    Returns:
+        logging.Logger: The configured logger instance.
+
+    Raises:
+        ValueError: If the logging level is invalid.
+        IOError: If the log file cannot be accessed or created.
+
+    Example:
+        >>> logger = setup_logger("my_app", "app.log", logging.INFO)
+        >>> logger.info("Application started")
+    """
+    # Validate logging level
+    if not isinstance(level, int) or level not in {
+        logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL
+    }:
+        raise ValueError(f"Invalid logging level: {level}. Use logging.DEBUG, logging.INFO, etc.")
+
+    # Get or create the logger
+    logger = logging.getLogger(name)
+    
+    # Check if the logger already has handlers to avoid duplicates
+    if logger.handlers:
+        return logger  # Logger is already configured, return it as-is
+
+    # Set the logging level
+    logger.setLevel(level)
+
+    # Create a default formatter if none provided
+    if formatter is None:
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+    # Set up file handler
+    try:
+        handler = logging.FileHandler(log_file, mode='a')  # Explicitly append mode
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    except IOError as e:
+        raise IOError(f"Failed to set up log file '{log_file}': {str(e)}") from e
+
+    # Prevent propagation to root logger (avoids duplicate logging if root is configured)
+    logger.propagate = False
+
+    return logger
+
+
+def read_yaml_file(path: str) -> dict:
+    """
+    Reads a YAML file and returns its content as a dictionary.
+
+    Args:
+        path (str): The path to the YAML file.
+
+    Returns:
+        dict: The content of the YAML file.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        yaml.YAMLError: If there is an error parsing the YAML file.
+        ValueError: If the file content is not a valid dictionary.
+    """
+    try:
+        with open(path, "r") as stream:
+            data = yaml.safe_load(stream)
+            if not isinstance(data, dict):
+                raise ValueError(f"The file content is not a valid dictionary: {path}")
+            return data
+    except FileNotFoundError:
+        print(f"File not found: {path}. Please check the file path and try again.")
+        raise
+    except yaml.YAMLError:
+        print(f"Error parsing YAML file: {path}. Please ensure the file is properly formatted.")
+        raise
+    except ValueError:
+        print(f"Invalid content in YAML file: {path}.")
+        raise
+    except Exception as e:
+        print(f"An unexpected error occurred while reading the YAML file: {str(e)}")
+        raise e
+
+
+def peertube_login(peertube_instance: str, peertube_username: str, peertube_password: str) -> str:
+    """
+    Logs into a PeerTube instance and retrieves an access token.
+
+    Args:
+        peertube_instance (str): The URL of the PeerTube instance.
+        peertube_username (str): The username for PeerTube login.
+        peertube_password (str): The password for PeerTube login.
+
+    Returns:
+        str: The access token if login is successful; None otherwise.
+    """
+    response = requests.get(f"{peertube_instance}/api/v1/oauth-clients/local")
+    client_data = response.json()
+    client_id = client_data['client_id']
+    client_secret = client_data['client_secret']
+    login_url = f'{peertube_instance}/api/v1/users/token'
+    payload = {
+        "client_id"     : client_id,
+        "client_secret" : client_secret,
+        "grant_type"    : "password",
+        "username"      : peertube_username,
+        "password"      : peertube_password,
+    }
+
+    try:
+        # Make the POST request to get the access token
+        response = requests.post(
+            login_url,
+            data=payload
+        )
+
+        # Check if request was successful
+        response.raise_for_status()
+
+        # Get the JSON response containing tokens
+        response_data = response.json()
+
+        # Return the access token
+        return response_data['access_token']
+
+    except requests.exceptions.RequestException as e:
+        if hasattr(e.response, 'text'):
+            error_detail = e.response.text
+            raise Exception(f"Login failed: {error_detail}")
+        raise Exception(f"Login failed: {str(e)}")
+        return None
+
+# Remove this one:
+def login(client_name,username,password):
+    """Login to PeerTube instance and get token"""
+    login_url = f'{INSTANCE_URL}/api/v1/users/token'
+    data = {'client_name': 'python_script', 'username': USERNAME, 'password': PASSWORD}
+    response = requests.post(login_url, json=data)
+    print("{response}")
+    token = response.json()['token']
+    return token
+
+
+def peertube_upload(token: str, data: dict, files: dict) -> tuple:
+    """
+    Uploads a media file to a PeerTube instance.
+
+    Args:
+        token (str): The access token for authentication.
+        data (dict): The data payload for the upload request.
+        files (dict): The files to be uploaded.
+
+    Returns:
+        tuple: The status code and response from the upload.
+    """
+    upload_url = f'{peertube_instance}/api/v1/videos/upload'
+    headers = {'Authorization': f'Bearer {token}'}
+    response = requests.post(upload_url, headers=headers, data=data, files=files)
+    return response.status_code, response.json()
+
+
+# Remove this one:
+def upload_video(token):
+    """Upload video to PeerTube instance"""
+    upload_url = f'{INSTANCE_URL}/api/v1/videos/upload'
+    headers = {'Authorization': f'Bearer {token}'}
+    data = {
+        'name': VIDEO_TITLE,
+        'description': VIDEO_DESCRIPTION,
+#        'tags': VIDEO_TAGS,
+#        'category': VIDEO_CATEGORY,
+#        'license': VIDEO_LICENSE,
+#        'privacy': 'public',
+#        'expiringAt': None,
+        'language': 'en',
+#        'nsfw': False
+    }
+    files = {'video': open(VIDEO_FILE, 'rb')}
+    response = requests.post(upload_url, headers=headers, data=data, files=files)
+    return response.json()
+
+
+def peertube_add_caption(
+    access_token: str,
+    video_id: str,
+    language: str,
+    caption_file_path: str
+) -> dict:
+    """
+    Upload a caption file to a PeerTube video.
+
+    Args:
+        video_id (str): UUID or short UUID of the video
+        language (str): Language code for the caption (e.g., 'en', 'fr')
+        caption_file_path (str): Path to the caption file (.srt or .vtt)
+        access_token (str): Bearer token for authentication
+
+    Returns:
+        dict: Response from the API with status
+
+    Raises:
+        FileNotFoundError: If the caption file doesn't exist
+        ValueError: If the file format is invalid
+        requests.exceptions.RequestException: If the API request fails
+    """
+
+    # Validate caption file
+    if not os.path.exists(caption_file_path):
+        raise FileNotFoundError(f"Caption file not found: {caption_file_path}")
+
+    if not caption_file_path.lower().endswith(('.srt', '.vtt')):
+        raise ValueError("Caption file must be .srt or .vtt format")
+
+    # Prepare API endpoint
+    add_caption_endpoint = f"{peertube_instance.rstrip('/')}/api/v1/videos/{video_id}/captions/{language}"
+
+    # Prepare headers
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
+
+    # Prepare file for upload
+    with open(caption_file_path, 'rb') as caption_file:
+        caption_files = {
+            'captionfile': (
+                os.path.basename(caption_file_path),
+                caption_file,
+                "text/vtt"
+            )
+        }
+
+        try:
+            # Make PUT request to upload caption
+            response = requests.put(add_caption_endpoint, headers=headers, files=caption_files)
+
+            # Handle HTTP 204 (No Content) for successful upload
+            if response.status_code == 204:
+                return {
+                    "status": 204,
+                    "message": "Caption uploaded successfully",
+                    "data": None
+                }
+
+            # Try to parse JSON response for other status codes
+            try:
+                response_data = response.json()
+            except ValueError:
+                # If JSON parsing fails, include raw response content for debugging
+                response_data = {
+                    "raw_response": response.text or "Empty response"
+                }
+
+            # Check response status
+            response.raise_for_status()
+
+            return {
+                "status": response.status_code,
+                "message": "Caption uploaded successfully",
+                "data": response_data
+            }
+
+        except requests.exceptions.HTTPError as e:
+            # Handle specific HTTP errors
+            try:
+                error_details = response.json()
+            except ValueError:
+                error_details = {
+                    "raw_response": response.text or "Empty response"
+                }
+            return {
+                "status": response.status_code,
+                "error": str(e),
+                "details": error_details
+            }
+        except requests.exceptions.RequestException as e:
+            # Handle other request errors
+            raise requests.exceptions.RequestException(f"API request failed: {str(e)}")
+
+def convert_to_two_letter_code(language_name: str) -> str:
+    """
+    Converts a language name into its two-letter language code (ISO 639-1).
+
+    Args:
+        language_name (str): The name of the language.
+
+    Returns:
+        str: The two-letter language code.
+    """
+    if (language_name == ""):
+        language_name = "English"
+
+    try:
+        lang = Language.find(language_name)
+        if lang.language and len(lang.language) == 2:
+            return lang.language
+        return ""
+    except LookupError:
+        return ""
+
+
+
+def connect_to_google_sheet(credentials_file: str):
+    """
+    Connects to the Google Sheets API using service account credentials.
+
+    Args:
+        credentials_file (str): Path to the Google service account credentials file.
+
+    Returns:
+        build: The Google Sheets API service object.
+    """
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+    CONFIG_FILE = credentials_file
+
+    if not os.path.exists(CONFIG_FILE):
+        raise Exception(f"Configuration file not found: {CONFIG_FILE}")
+
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            CONFIG_FILE,
+            scopes=SCOPES
+        )
+
+        service = build('sheets', 'v4', credentials=creds)
+        return service
+
+    except Exception as e:
+        raise Exception(f"Failed to create Google Sheets service: {str(e)}")
+
+def read_google_sheet(spreadsheet_id: str, sheet_name="Sheet1", credentials_file="configuration.json") -> pd.DataFrame:
+    """
+    Reads data from a Google Sheet into a pandas DataFrame.
+
+    Args:
+        spreadsheet_id (str): The ID of the Google Sheet.
+        sheet_name (str): The name of the sheet to read data from.
+        credentials_file (str): Path to the Google service account credentials file.
+
+    Returns:
+        pandas.DataFrame: The data from the Google Sheet.
+    """
+    try:
+        # Build the service
+        service = connect_to_google_sheet(credentials_file);
+
+        # Call the Sheets API
+        sheet = service.spreadsheets()
+        result = sheet.values().get(spreadsheetId=spreadsheet_id,
+                              range=sheet_name).execute()
+
+        # Get the values
+        values = result.get('values', [])
+
+        if not values:
+            print('No data found.')
+            return pd.DataFrame()
+
+        # Convert to DataFrame
+        # First row as headers, rest as data
+        headers = values[0]
+        data = values[1:] if len(values) > 1 else []
+
+        # Create DataFrame
+        df = pd.DataFrame(data, columns=headers)
+
+        return df
+
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return pd.DataFrame()
+		
+def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, credentials_file: str) -> tuple:
+    """
+    Updates a Google Sheet with data from a pandas DataFrame.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame containing updated data.
+        spreadsheet_id (str): The ID of the Google Sheet.
+        sheet_name (str): The name of the sheet to update.
+        credentials_file (str): Path to the Google service account credentials file.
+
+    Returns:
+        tuple: Success status and message.
+    """
+    try:
+        # Validate inputs
+        if not isinstance(df, pd.DataFrame):
+            return False, "Input must be a pandas DataFrame"
+
+        if df.empty:
+            return False, "DataFrame is empty"
+
+        # Build the service
+        service = connect_to_google_sheet(credentials_file);
+
+        # Call the Sheets API
+        sheet = service.spreadsheets()
+
+        # Convert DataFrame to list of lists (including headers)
+        values = [df.columns.tolist()] + df.values.tolist()
+
+        # Prepare the body for the API request
+        body = {
+            'values': values
+        }
+
+        # Update the sheet with DataFrame contents
+        result = sheet.values().update(
+            spreadsheetId=spreadsheet_id,
+            range=f'{sheet_name}!A1',
+            valueInputOption='RAW',
+            body=body
+        ).execute()
+
+        updated_cells = result.get('updatedCells', 0)
+        return True, f"Successfully updated {updated_cells} cells"
+
+    except Exception as e:
+        return False, f"An error occurred: {str(e)}"
+
+
+def is_valid_dataframe(df: pd.DataFrame) -> bool:
+    """
+    Determines if a DataFrame is valid (not empty and of correct type).
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to validate.
+
+    Returns:
+        bool: True if valid, False otherwise.
+    """
+    return isinstance(df, pd.DataFrame) and not df.empty
+
+def update_dataframe(df: pd.DataFrame, match_column: str, match_value, update_column: str, update_value):
+    """
+    Update a DataFrame by matching a value in a specified column and updating another column.
+
+    Parameters:
+    df (pandas.DataFrame): The input DataFrame
+    match_column (str): Name of the column to match on
+    match_value: Value to match in the match_column
+    update_column (str): Name of the column to update
+    update_value: Value to set in the update_column
+
+    Returns:
+    pandas.DataFrame: Updated DataFrame
+    boolean: True/False
+    str: Message
+    """
+    try:
+        # Verify input is a DataFrame
+        if not isinstance(df, pd.DataFrame):
+            return None, False, "Input must be a pandas DataFrame"
+
+        # Check if DataFrame is empty
+        if df.empty:
+            return df, False, "DataFrame is empty"
+
+        # Verify columns exist
+        if match_column not in df.columns:
+            return df, False, f"Match column '{match_column}' not found"
+        if update_column not in df.columns:
+            return df, False, f"Update column '{update_column}' not found"
+
+        # Create a copy to avoid modifying the original
+        updated_df = df.copy()
+
+        # Find rows to update
+        mask = updated_df[match_column].astype(str) == str(match_value)
+        if not mask.any():
+            return updated_df, False, f"No rows found matching '{match_value}' in '{match_column}'"
+
+        # Update the matching rows
+        updated_df.loc[mask, update_column] = update_value
+
+        # Count updated rows
+        updated_count = mask.sum()
+
+        return updated_df, True, f"Successfully updated {updated_count} row(s)"
+
+    except Exception as e:
+        return df, False, f"An error occurred: {str(e)}"
+		
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description='Migrate media from Islandora 7 to PeerTube.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    # Required arguments:
+    parser.add_argument('--config-file', dest="config_file", required=True, help='Path to the YAML configuration file.')
+    parser.add_argument('--log-file', dest="log_file", required=True, help='Path to the log file.')
+    # Optional arguments:
+    parser.add_argument('--in-google-sheet-id', dest="in_gs_id", help='Google Sheet ID.')
+    parser.add_argument('--in-googls-sheet-name', dest="in_gs_name", help='Google Sheet Tab name.')
+
+    # Parse the arguments:
+    args = parser.parse_args()
+
+    # Return the argument list:
+    return args
+
+def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
+    logger.info("Processing Sheet: {sheet_id}:{sheet_name}")
+    df = read_google_sheet(sheet_id, sheet_name, credentials_file)
+
+    for index,row in df.iterrows():
+        video_title = row['title']
+        video_desc  = row['description']
+        video_lang  = row['language']
+        video_id    = row['id']
+
+        logger.info(f"  Processing: {video_id}")
+        print(f"  Processing: {video_id}")
+
+    logger.info("Processing Sheet: Completed.")
+
+def main():
+
+    # Setup the log file format.
+    log_formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)s %(message)s',datefmt="%Y%m%d %H:%M:%S")
+
+    # Parse command line arguements.
+    args = parse_arguments()
+    
+    # Obtain the user running the script.
+    username            = get_username()
+    
+    # Get the configuration file contents.
+    cfg                 = read_yaml_file(args.config_file)
+
+    # Set PeerTube variables from config file.
+    peertube_instance   = cfg['peertube_instance']
+    peertube_username   = cfg['peertube_username']
+    peertube_password   = cfg['peertube_password']
+
+    # Set Google variables from config file.
+    google_credentials  = cfg['google_credentials_file']
+    google_sheet_id     = cfg['google_sheet_id']
+    google_sheet_name   = cfg['google_sheet_name']
+
+    # Create the Log file.
+    print(f"Creating log file: {args.log_file}")
+    logger = setup_logger('logger', args.log_file, level=logging.DEBUG, formatter=log_formatter)
+    logger.info(f"Begin log.")
+
+    # Create the Temporary directory.
+    try:
+        temp_dir = create_temp_dir_at_path("/workbench/{username}")
+        print(f"Temporary directory created at: {temp_dir}")
+        logger.info(f"Temporary directory created at: {temp_dir}")
+    except (TypeError, OSError) as e:
+        print(f"Error: {e}")
+
+    if (args.in_gs_id):
+        google_sheet_id = args.in_gs_id
+
+    if (args.in_gs_name):
+        google_sheet_name = args.in_gs_name
+
+    # Process the sheet.
+    logger.info(f"Begin Processing the sheet.")
+    ret = process_sheet(google_sheet_id,google_sheet_name,google_credentials)
+
+    logger.info(f"End Processing the sheet.")
+
+    # Exit.
+    logger.info(f"Upload complete.")
+    print(f"Upload complete.")
+
+
+# Begin
+if __name__ == "__main__":
+    main()
+
+
+
