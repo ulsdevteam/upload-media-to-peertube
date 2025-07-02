@@ -690,56 +690,60 @@ def process_row(df,row):
         logger.info(f"Thumbnail was not added to {video_id}")
 
     # Upload the Media object to PeerTube.
-    peertube_media_url = ""
-    peertube_media_shortUUID = ""
-    peertube_media_longUUID = ""
-    peertube_media_upload_success = False
+    if (media_file_exists) :
+        peertube_media_url = ""
+        peertube_media_shortUUID = ""
+        peertube_media_longUUID = ""
+        peertube_media_upload_success = False
 
-    upload_result_code,upload_result_json = peertube_upload(token, data, files)
-    if (upload_result_code == 200):
-        #Successful upload.
-        logger.info(f"Sucessful upload of {video_id} to PeerTube")
-        peertube_media_shortUUID = upload_result_json['video']['shortUUID']
-        peertube_media_longUUID  = upload_result_json['video']['uuid']
-        peertube_media_url = f"{peertube_instance}/w/{media_shortUUID}"  
-        peertube_media_upload_success = True
-    elif upload_result_code == 400:
-        logger.warning(f"{video_id} Media object upload - 400 Bad Request: {upload_result_json}.")
-    elif upload_result_code == 401:
-        logger.warning(f"{video_id} Media object upload - 401 Bad Request: {upload_result_json}.")
-    elif upload_result_code == 403:
-        logger.warning(f"{video_id} Media object upload - 403 Bad Request: {upload_result_json}.")
-    elif upload_result_code == 404:
-        logger.warning(f"{video_id} Media object upload - 404 Bad Request: {upload_result_json}.")
-    elif upload_result_code == 408:
-        logger.warning(f"{video_id} Media object upload - 408 Bad Request: {upload_result_json}.")
-    elif upload_result_code == 415:
-        logger.warning(f"{video_id} Media object upload - 415 Bad Request: {upload_result_json}.")
-    elif upload_result_code == 422:
-        logger.warning(f"{video_id} Media object upload - 422 Bad Request: {upload_result_json}.")
-    else:
-        logger.warning(f"{video_id} Media object upload - Error: {upload_result_code} - {upload_result_json}.")
+        upload_result_code,upload_result_json = peertube_upload(token, data, files)
+        if (upload_result_code == 200):
+            #Successful upload.
+            logger.info(f"Sucessful upload of {video_id} to PeerTube")
+            peertube_media_shortUUID = upload_result_json['video']['shortUUID']
+            peertube_media_longUUID  = upload_result_json['video']['uuid']
+            peertube_media_url = f"{peertube_instance}/w/{media_shortUUID}"  
+            peertube_media_upload_success = True
+        elif upload_result_code == 400:
+            logger.warning(f"{video_id} Media object upload - 400 Bad Request: {upload_result_json}.")
+        elif upload_result_code == 401:
+            logger.warning(f"{video_id} Media object upload - 401 Bad Request: {upload_result_json}.")
+        elif upload_result_code == 403:
+            logger.warning(f"{video_id} Media object upload - 403 Bad Request: {upload_result_json}.")
+        elif upload_result_code == 404:
+            logger.warning(f"{video_id} Media object upload - 404 Bad Request: {upload_result_json}.")
+        elif upload_result_code == 408:
+            logger.warning(f"{video_id} Media object upload - 408 Bad Request: {upload_result_json}.")
+        elif upload_result_code == 415:
+            logger.warning(f"{video_id} Media object upload - 415 Bad Request: {upload_result_json}.")
+        elif upload_result_code == 422:
+            logger.warning(f"{video_id} Media object upload - 422 Bad Request: {upload_result_json}.")
+        else:
+            logger.warning(f"{video_id} Media object upload - Error: {upload_result_code} - {upload_result_json}.")
         
-    # Add the Transcript to the Media Object if the transcript exists and if the upload was successful.
-    if (peertube_media_upload_success):
-        if (get_transcript):
-            # Add a transcript to the previously uploaded media.
-            logger.info(f"{video_id} Transcript upload - file: {video_transcript}")
-            # Perform the transcript upload - here.
-            # --> Todo. <--
-        else:
-            logger.info(f"Transcript was not added to Media {video_id}")
+        # Add the Transcript to the Media Object if the transcript exists and if the upload was successful.
+        if (peertube_media_upload_success):
+            if (get_transcript):
+                # Add a transcript to the previously uploaded media.
+                logger.info(f"{video_id} Transcript upload - file: {video_transcript}")
+                # Perform the transcript upload - here.
+                # --> Todo. <--
+            else:
+                logger.info(f"Transcript was not added to Media {video_id}")
 
-    # Update the dataframe with the peertube_media_url if the upload was successful.
-    if (peertube_media_upload_success):
-        logger.info(f"Updating dataframe for object {video_id}")
-        df,success,msg = update_dataframe(df,'id',video_id,'field_media_oembed_video',peertube_media_url)
-        if (success):
-            logger.info(f"DataFrame updated with {video_id} - {peertube_media_url}")
-            return df
-        else:
-            logger.warning(f"DataFrame not updated for {video_id} - {peertube_media_url}")
-            return df
+        # Update the dataframe with the peertube_media_url if the upload was successful.
+        if (peertube_media_upload_success):
+            logger.info(f"Updating dataframe for object {video_id}")
+            df,success,msg = update_dataframe(df,'id',video_id,'field_media_oembed_video',peertube_media_url)
+            if (success):
+                logger.info(f"DataFrame updated with {video_id} - {peertube_media_url}")
+                return df
+            else:
+                logger.warning(f"DataFrame not updated for {video_id} - {peertube_media_url}")
+                return df
+    else:
+        logger.warning(f"Media file does not exist - Skipping {video_id}")
+        return df
 
 
 def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
