@@ -16,6 +16,8 @@ import tempfile
 from pathlib import Path
 from typing import Union
 from typing import Optional
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
 
 warnings.filterwarnings("ignore", message="Data Validation extension is not supported")
 
@@ -421,12 +423,13 @@ def read_google_sheet(spreadsheet_id: str, sheet_name="Sheet1", credentials_file
         service = connect_to_google_sheet(credentials_file);
 
         # Call the Sheets API
-        sheet = service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=spreadsheet_id,
-                              range=sheet_name).execute()
+        sheet = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=sheet_name
+        ).execute()
 
         # Get the values
-        values = result.get('values', [])
+        data = sheet.get('values', [])
 
         if not values:
             logger.warning(f"read_google_sheet - No data found in the specified worksheet.")
@@ -441,8 +444,8 @@ def read_google_sheet(spreadsheet_id: str, sheet_name="Sheet1", credentials_file
 
             # Convert to DataFrame
             # First row as headers, rest as data
-            headers = values[0]
-            data = values[1:] if len(values) > 1 else []
+            headers = data[0]
+            rows = data[1:] if len(data) > 1 else []
 
             # Pad rows with fewer columns with fill_value
             fill_value = None
@@ -455,7 +458,7 @@ def read_google_sheet(spreadsheet_id: str, sheet_name="Sheet1", credentials_file
             return df
 
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
+        print(f"Error accessing Google Sheet: {str(e)}")
         return pd.DataFrame()
 		
 def update_google_sheet(df: pd.DataFrame, spreadsheet_id: str, sheet_name: str, credentials_file: str) -> tuple:
@@ -780,6 +783,8 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
         logger.warning(f"One or more required columns are missing from the sheet.")
         print(f"One or more required columns are missing from the sheet.")
         print(f"Required columns are: {required_columns}.")
+        logger.warning(f"Existing Columns are: {df.columns}.")
+        print(f"Existing columns are: {df.columns}.")
         exit()
 
 def main():
@@ -829,12 +834,12 @@ def main():
 
     # Create the Log file.
     print(f"Creating log file: {args.log_file}")
-    logger = setup_logger('logger', log_file, level=logging.DEBUG, formatter=log_formatter)
+    globals()['logger'] = setup_logger('logger', log_file, level=logging.DEBUG, formatter=log_formatter)
     logger.info(f"Begin log.")
 
     # Create the Temporary directory.
     try:
-        temp_dir = create_temp_dir_at_path("/workbench/{username}")
+        temp_dir = create_temp_dir_at_path(f"/workbench/{username}")
         print(f"Temporary directory created at: {temp_dir}")
         logger.info(f"Temporary directory created at: {temp_dir}")
     except (TypeError, OSError) as e:
