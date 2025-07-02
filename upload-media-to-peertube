@@ -585,6 +585,10 @@ def parse_arguments():
     parser.add_argument('--in-google-sheet-id', dest="in_gs_id", help='Google Sheet ID.')
     parser.add_argument('--in-google-sheet-name', dest="in_gs_name", help='Google Sheet Tab name.')
     parser.add_argument('--in-google-creds-file', dest="in_gs_creds", help='Google Credential json file.')
+    parser.add_argument('--peertube-instance', dest="peertube_instance", help='PeerTube instance URL.')
+    parser.add_argument('--peertube-username', dest="peertube_username", help='PeerTube account username.')
+    parser.add_argument('--peertube-password', dest="peertube_password", help='PeerTube account password.')
+    parser.add_argument('--peertube-channel', dest="peertube_channel", help='PeerTube channel number.')
 
     # Parse the arguments:
     args = parser.parse_args()
@@ -791,13 +795,17 @@ def main():
     peertube_instance   = cfg['peertube_instance']
     peertube_username   = cfg['peertube_username']
     peertube_password   = cfg['peertube_password']
+    peertube_channel    = cfg['peertube_channel']
 
     # Set Google variables from config file.
     google_credentials  = cfg['google_credentials_file']
     google_sheet_id     = cfg['google_sheet_id']
     google_sheet_name   = cfg['google_sheet_name']
 
-    # Override config file variable with command line parameters.
+    # Set Log file path from config file.
+    log_file            = cfg['log_file']
+
+    # Override config file variable with command line parameters if they exist.
     if args.in_gs_creds is not None:
         google_credentials = args.in_gs_creds
     if args.in_gs_id is not None:
@@ -806,6 +814,14 @@ def main():
         google_sheet_name = args.in_gs_name
     if args.log_file is not None:
         log_file = args.log_file
+    if args.peertube_instance is not None:
+        peertube_instance = args.peertube_instance
+    if args.peertube_username is not None:
+        peertube_username = args.peertube_username
+    if args.peertube_password is not None:
+        peertube_password = args.peertube_password
+    if args.peertube_channel is not None:
+        peertube_channel = args.peertube_channel
 
     # Create the Log file.
     print(f"Creating log file: {args.log_file}")
