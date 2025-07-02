@@ -429,18 +429,30 @@ def read_google_sheet(spreadsheet_id: str, sheet_name="Sheet1", credentials_file
         values = result.get('values', [])
 
         if not values:
-            print('No data found.')
+            logger.warning(f"read_google_sheet - No data found in the specified worksheet.")
+            print('No data found in the specified worksheet.')
+            
+            # Return empty DataFrame
             return pd.DataFrame()
 
-        # Convert to DataFrame
-        # First row as headers, rest as data
-        headers = values[0]
-        data = values[1:] if len(values) > 1 else []
+        else:
+            logger.info(f"read_google_sheet - Read of Google Sheet Successful.")
+            print(f" Read of Google Sheet Successful.")
 
-        # Create DataFrame
-        df = pd.DataFrame(data, columns=headers)
+            # Convert to DataFrame
+            # First row as headers, rest as data
+            headers = values[0]
+            data = values[1:] if len(values) > 1 else []
 
-        return df
+            # Pad rows with fewer columns with fill_value
+            fill_value = None
+            max_columns = len(headers)
+            padded_rows = [row + [fill_value] * (max_columns - len(row)) for row in rows]
+
+            # Create DataFrame
+            df = pd.DataFrame(padded_rows, columns=headers)
+
+            return df
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
@@ -568,9 +580,11 @@ def parse_arguments():
     # Required arguments:
     parser.add_argument('--config-file', dest="config_file", required=True, help='Path to the YAML configuration file.')
     parser.add_argument('--log-file', dest="log_file", required=True, help='Path to the log file.')
+
     # Optional arguments:
     parser.add_argument('--in-google-sheet-id', dest="in_gs_id", help='Google Sheet ID.')
-    parser.add_argument('--in-googls-sheet-name', dest="in_gs_name", help='Google Sheet Tab name.')
+    parser.add_argument('--in-google-sheet-name', dest="in_gs_name", help='Google Sheet Tab name.')
+    parser.add_argument('--in-google-creds-file', dest="in_gs_creds", help='Google Credential json file.')
 
     # Parse the arguments:
     args = parser.parse_args()
@@ -578,23 +592,189 @@ def parse_arguments():
     # Return the argument list:
     return args
 
+def get_file_mediatype(infile):
+    mime_type, encoding = mimetypes.guess_type(infile)
+    return mime_type or 'application/octet-stream'
+
+def process_row(df,row):
+    # Required Vars for all media objects.
+    video_id    = row['id']
+    video_title = row['title']
+    video_desc  = row['description']
+    video_lang  = row['language']
+    video_file  = row['file']
+
+    # Optional Vars for optional components. 
+    video_thumbnail             = ''
+    video_thumbnail_mimetype    = ''
+    video_transcript            = ''
+    video_transcript_lang       = ''
+
+    # Determine the optional componets.
+    transcript = False
+    if 'transcript' in df.columns:
+        if not row['transcript'] == "":
+            transcript = True
+            video_transcript = row['transcript']
+
+    transcript_language = False
+    if 'transcript_language' in df.columns:
+        if not row['transcript_language'] == "":
+            transcript_language = True
+            video_transcript_lang = row['transcript_language']
+                    
+    thumbnail = False
+    if 'thumbnail' in df.columns:
+        if not row['thumbnail'] == "":
+            thumbnail = True
+            video_thumbnail = row['thumbnail']
+            video_thumbnail_mimetype = get_mimetype(video_thumbnail)
+
+    media_file_exists = False
+    if 'file' in df.columns:
+        if not row['file'] == "":
+            media_file_exists = True
+            video_file = row['file']
+
+    # Derived variables or those that need post processing.
+    video_description = f"{video_desc} ({video_id})"
+
+    if (video_lang == ""): # Null
+        video_language = "zxx" # "No linguistic content"
+    else:
+        video_language = convert_to_two_letter_code(video_lang)
+
+    video_mimetype = get_file_mimetype(video_file)
+
+    # Create the media object.
+    data = {
+        "name": video_title,
+        "description": video_description,
+        "downloadEnabled": False,
+        "language": video_language,
+        "privacy": 1,
+        "CommentsPolicy": 2,
+        "generateTranscription": False,
+        "waitTranscoding": False,
+        "nsfw": False,
+        "channelId": peertube_channel
+    }
+
+    # Create the files object for the media object.
+    files = {}
+
+    # Add the Media File.
+    if os.path.isfile(video_file):
+        files["videofile"] = (
+            os.path.basename(video_file),
+            open(video_file, "rb"),
+            video_mimetype
+        )
+    else:
+        logger.info(f"Media file {video_file} does not exist for {video_id}.")
+
+    if (get_thumbnail):
+        if os.path.basename(video_thumbnail):
+            files["thumbnailfile"] = (
+                os.path.basename(video_thumbnail),
+                open(video_thumbnail, "rb"),
+                video_thumbnail_mimetype
+            )
+        else:
+            logger.info(f"Thumbnail file {video_thumbnail} does not exist for {video_id}")
+    else:
+        logger.info(f"Thumbnail was not added to {video_id}")
+
+    # Upload the Media object to PeerTube.
+    peertube_media_url = ""
+    peertube_media_shortUUID = ""
+    peertube_media_longUUID = ""
+    peertube_media_upload_success = False
+
+    upload_result_code,upload_result_json = peertube_upload(token, data, files)
+    if (upload_result_code == 200):
+        #Successful upload.
+        logger.info(f"Sucessful upload of {video_id} to PeerTube")
+        peertube_media_shortUUID = upload_result_json['video']['shortUUID']
+        peertube_media_longUUID  = upload_result_json['video']['uuid']
+        peertube_media_url = f"{peertube_instance}/w/{media_shortUUID}"  
+        peertube_media_upload_success = True
+    elif upload_result_code == 400:
+        logger.warning(f"{video_id} Media object upload - 400 Bad Request: {upload_result_json}.")
+    elif upload_result_code == 401:
+        logger.warning(f"{video_id} Media object upload - 401 Bad Request: {upload_result_json}.")
+    elif upload_result_code == 403:
+        logger.warning(f"{video_id} Media object upload - 403 Bad Request: {upload_result_json}.")
+    elif upload_result_code == 404:
+        logger.warning(f"{video_id} Media object upload - 404 Bad Request: {upload_result_json}.")
+    elif upload_result_code == 408:
+        logger.warning(f"{video_id} Media object upload - 408 Bad Request: {upload_result_json}.")
+    elif upload_result_code == 415:
+        logger.warning(f"{video_id} Media object upload - 415 Bad Request: {upload_result_json}.")
+    elif upload_result_code == 422:
+        logger.warning(f"{video_id} Media object upload - 422 Bad Request: {upload_result_json}.")
+    else:
+        logger.warning(f"{video_id} Media object upload - Error: {upload_result_code} - {upload_result_json}.")
+        
+    # Add the Transcript to the Media Object if the transcript exists and if the upload was successful.
+    if (peertube_media_upload_success):
+        if (get_transcript):
+            # Add a transcript to the previously uploaded media.
+            logger.info(f"{video_id} Transcript upload - file: {video_transcript}")
+            # Perform the transcript upload - here.
+            # --> Todo. <--
+        else:
+            logger.info(f"Transcript was not added to Media {video_id}")
+
+    # Update the dataframe with the peertube_media_url if the upload was successful.
+    if (peertube_media_upload_success):
+        logger.info(f"Updating dataframe for object {video_id}")
+        df,success,msg = update_dataframe(df,'id',video_id,'field_media_oembed_video',peertube_media_url)
+        if (success):
+            logger.info(f"DataFrame updated with {video_id} - {peertube_media_url}")
+            return df
+        else:
+            logger.warning(f"DataFrame not updated for {video_id} - {peertube_media_url}")
+            return df
+
+
 def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
     logger.info("Processing Sheet: {sheet_id}:{sheet_name}")
+
+    # Read the Sheet
     df = read_google_sheet(sheet_id, sheet_name, credentials_file)
 
-    for index,row in df.iterrows():
-        video_title = row['title']
-        video_desc  = row['description']
-        video_lang  = row['language']
-        video_id    = row['id']
+    # Check for Required columns
+    required_columns = ['id','title','description','language','file','field_media_oembed_video']
+    if all(col in df.columns for col in required_columns):
+        logger.info(f"Begin Processing Sheet: {sheetid},{sheet_name}.")
+                
+        # Process each row in the sheet
+        for index,row in df.iterrows():
+            # Get Row information.
+            video_id    = row['id']
 
-        logger.info(f"  Processing: {video_id}")
-        print(f"  Processing: {video_id}")
+            # Proces the row
+            logger.info(f"  Processing: {video_id}")
+            print(f"  Processing: {video_id}")
+            df = process_row(df,row)
 
-    logger.info("Processing Sheet: Completed.")
+        # Save the updated Sheet.
+        result,msg = update_google_sheet(df, sheet_id, sheet_name, credentials_file)
+        
+        if (result == True):
+            logger.info(f"Updating Google Sheet {sheet_id},{sheet_name} Completed.")
+        else:
+            logger.warning(f"Updating Google Sheet {sheet_id},{sheet_name} Failed - {msg}")
+
+        logger.info("Processing Sheet: Completed.")
+    else:
+        logger.warning(f"One or more required columns are missing from the sheet.")
+        print(f"One or more required columns are missing from the sheet.")
+        print(f"Required columns are: {required_columns}.")
+        exit()
 
 def main():
-
     # Setup the log file format.
     log_formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)s %(message)s',datefmt="%Y%m%d %H:%M:%S")
 
@@ -617,9 +797,19 @@ def main():
     google_sheet_id     = cfg['google_sheet_id']
     google_sheet_name   = cfg['google_sheet_name']
 
+    # Override config file variable with command line parameters.
+    if args.in_gs_creds is not None:
+        google_credentials = args.in_gs_creds
+    if args.in_gs_id is not None:
+        google_sheet_id = args.in_gs_id
+    if args.in_gs_name is not None:
+        google_sheet_name = args.in_gs_name
+    if args.log_file is not None:
+        log_file = args.log_file
+
     # Create the Log file.
     print(f"Creating log file: {args.log_file}")
-    logger = setup_logger('logger', args.log_file, level=logging.DEBUG, formatter=log_formatter)
+    logger = setup_logger('logger', log_file, level=logging.DEBUG, formatter=log_formatter)
     logger.info(f"Begin log.")
 
     # Create the Temporary directory.
@@ -630,26 +820,17 @@ def main():
     except (TypeError, OSError) as e:
         print(f"Error: {e}")
 
-    if (args.in_gs_id):
-        google_sheet_id = args.in_gs_id
-
-    if (args.in_gs_name):
-        google_sheet_name = args.in_gs_name
-
     # Process the sheet.
     logger.info(f"Begin Processing the sheet.")
     ret = process_sheet(google_sheet_id,google_sheet_name,google_credentials)
-
     logger.info(f"End Processing the sheet.")
 
     # Exit.
     logger.info(f"Upload complete.")
     print(f"Upload complete.")
-
+    exit()
 
 # Begin
 if __name__ == "__main__":
     main()
-
-
 
