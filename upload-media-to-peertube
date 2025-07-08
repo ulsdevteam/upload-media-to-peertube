@@ -636,6 +636,12 @@ def process_row(df,row):
             thumbnail = True
             video_thumbnail = row['thumbnail']
             video_thumbnail_mimetype = get_mimetype(video_thumbnail)
+        else:
+            if not thumbnail_audio == "":
+                if os.path.exists(thumbnail_audio):
+                    thumbnail = True
+                    video_thumbnail = thumbnail_audio
+                    video_thumbnail_mimetype = get_mimetype(thumbnail_audio)
 
     media_file_exists = False
     if 'file' in df.columns:
@@ -813,6 +819,10 @@ def main():
 
     # Set Log file path from config file.
     log_file            = cfg['log_file']
+
+    # Set Default Thumbnails from config file.
+    globals()['thumbnail_audio'] = cfg['thumbnail_audio']
+    globals()['thumbnail_video'] = cfg['thumbnail_video']    
 
     # Override config file variable with command line parameters if they exist.
     if args.in_gs_creds is not None:
