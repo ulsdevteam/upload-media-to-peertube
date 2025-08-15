@@ -15,6 +15,7 @@ import warnings
 import tempfile
 import mimetypes
 import requests
+import time
 from pathlib import Path
 from typing import Union
 from typing import Optional
@@ -595,9 +596,6 @@ def get_mimetype(infile):
     return mime_type or 'application/octet_stream'
 
 def process_row(df,row):
-
-    print(f"process_row - Dataframe: {df}")
-
     # Required Vars for all media objects.
     video_id    = row['id']
     video_title = row['title']
@@ -641,7 +639,7 @@ def process_row(df,row):
         if 'thumbnail' in df.columns:
             logger.info(f"Thumbnail: {row['thumbnail']}")
 
-            if not row['thumbnail'] == None:
+            if not row['thumbnail'] == "":
                 thumbnail = True
                 video_thumbnail = row['thumbnail']
                 video_thumbnail_mimetype = get_mimetype(video_thumbnail)
@@ -659,6 +657,7 @@ def process_row(df,row):
         if (video_lang == None): # Null
             video_language = "zxx" # "No linguistic content"
         else:
+            # Tidy this up a bit...
             logger.info(f"Language: {video_lang}")
             if (len(video_lang) == 3):
                 video_language = convert_lang_three_to_two(video_lang)
@@ -673,12 +672,12 @@ def process_row(df,row):
             "description": video_description,
             "downloadEnabled": False,
             "language": video_language,
+            "channelId": peertube_channel,
             "privacy": 1,
-            "CommentsPolicy": 2,
+            "commentsPolicy": 2,
             "generateTranscription": False,
             "waitTranscoding": False,
-            "nsfw": False,
-            "channelId": peertube_channel
+            "nsfw": False
         }
 
         # Create the files object for the media object.
@@ -760,10 +759,10 @@ def process_row(df,row):
         # Update the dataframe with the peertube_media_url if the upload was successful.
         if (peertube_media_upload_success):
             logger.info(f"Updating dataframe for object {video_id}")
-            df,success,msg = update_dataframe(df,'id',video_id,'field_media_oembed_video',peertube_media_url)
+            updated_df,success,msg = update_dataframe(df,'id',video_id,'field_media_oembed_video',peertube_media_url)
             if (success):
                 logger.info(f"DataFrame updated with {video_id} - {peertube_media_url}")
-                return df
+                return updated_df
             else:
                 logger.warning(f"DataFrame not updated for {video_id} - {peertube_media_url}")
                 return df
@@ -789,19 +788,24 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
             video_id    = row['id']
 
             # Proces the row
+            logger.info(f"-----------------------------------------------------")
             logger.info(f"Processing: {video_id}")
             print(f"Processing: {video_id}")
-            updated_df = process_row(df,row)
+            df = process_row(df,row)
+            print(f"Waiting...")
+            time.sleep(1)
+
+        df.to_csv('/var/tmp/dataframe.csv', index=False)
 
         # Save the updated Sheet.
-        #result,msg = update_google_sheet(updated_df, sheet_id, sheet_name, credentials_file)
+        result,msg = update_google_sheet(df, sheet_id, sheet_name, credentials_file)
         
-        #if (result == True):
-        #    logger.info(f"Updating Google Sheet {sheet_id},{sheet_name} Completed.")
-        #else:
-        #    logger.warning(f"Updating Google Sheet {sheet_id},{sheet_name} Failed - {msg}")
-        #
-        #logger.info("Processing Sheet: Completed.")
+        if (result == True):
+            logger.info(f"Updating Google Sheet {sheet_id},{sheet_name} Completed.")
+        else:
+            logger.warning(f"Updating Google Sheet {sheet_id},{sheet_name} Failed - {msg}")
+        
+        logger.info("Processing Sheet: Completed.")
     else:
         logger.warning(f"One or more required columns are missing from the sheet.")
         print(f"One or more required columns are missing from the sheet.")
@@ -860,6 +864,8 @@ def main():
         peertube_password = args.peertube_password
     if args.peertube_channel is not None:
         peertube_channel = args.peertube_channel
+
+    # Add required checks for arguements/cfg entries.
 
     globals()['peertube_channel'] = peertube_channel
     globals()['peertube_instance'] = peertube_instance
