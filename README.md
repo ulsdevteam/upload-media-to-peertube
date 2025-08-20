@@ -13,8 +13,7 @@ Sheet Columns:
   ---------------------------- ----------------------------------------------
   **Google Sheet**             **PeerTube**
 
-  'id'                         This is the PID of the object. This will be
-                               appended to the description field as '({id})'.
+  'id'                         This is the PID of the object.
 
   'title'                      This is the title displayed of the video. It
                                will be truncated to 250 characters within
@@ -33,11 +32,12 @@ Sheet Columns:
   **Google Sheet**             **PeerTube**
 
   'description'                Description -- A description of the media.
-                               This can be empty.
+                               This can be empty. However, when uploaded to 
+                               PeerTube the 'id' column will be added as
+                               '({id})'
 
-  'language'                   Language -- This can be empty, use empty for
-                               silent (no audio) media. Eg. English, Spanish,
-                               French, etc.
+  'language'                   Language -- Leave blank for silent (no audio)
+                               media. Eg. English, Spanish, French, etc.
 
   'thumbnail'                  Thumbnail file for the media. This would be
                                the full path to the Thumbnail (.jpg or .png).
