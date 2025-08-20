@@ -20,13 +20,6 @@ Sheet Columns:
                                will be truncated to 250 characters within
                                PeerTube.
 
-  'description'                Description -- A description of the media.
-                               This can be empty.
-
-  'language'                   Language -- This can be empty, use empty for
-                               silent (no audio) media. Eg. English, Spanish,
-                               French, etc.
-
   'file'                       Media File that is uploaded (.mp3\|.mkv) --
                                Must be the full path to the media file.
                                Usually populated by scan-batch-dir script.
@@ -38,6 +31,13 @@ Sheet Columns:
   **Optional Columns**         
 
   **Google Sheet**             **PeerTube**
+
+  'description'                Description -- A description of the media.
+                               This can be empty.
+
+  'language'                   Language -- This can be empty, use empty for
+                               silent (no audio) media. Eg. English, Spanish,
+                               French, etc.
 
   'thumbnail'                  Thumbnail file for the media. This would be
                                the full path to the Thumbnail (.jpg or .png).
