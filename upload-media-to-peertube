@@ -599,15 +599,23 @@ def process_row(df,row):
     # Required Vars for all media objects.
     video_id    = row['id']
     video_title = row['title']
-    video_desc  = row['description']
-    video_lang  = row['language']
     video_file  = row['file']
 
-    # Optional Vars for optional components. 
-    video_thumbnail             = ''
+    # Optional Vars for optional components.
+    if 'description' in df.columns:
+        video_desc  = row['description']
+    else:
+        video_desc  = ""
+
+    if 'language' in df.columns:
+        video_lang  = row['language']
+    else:
+        video_lang  = ""
+
+    video_thumbnail = ''
+    video_transcript = ''
+    video_transcript_lang = ''
     video_thumbnail_mimetype    = ''
-    video_transcript            = ''
-    video_transcript_lang       = ''
 
     # Determine the required components.
     media_file_exists = False
@@ -664,6 +672,7 @@ def process_row(df,row):
             else:
                 video_language = convert_to_two_letter_code(video_lang)
 
+        # Get the mimetype of the video_file
         video_mimetype = get_mimetype(video_file)
 
         # Create the media object.
@@ -778,7 +787,8 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
     df = read_google_sheet(sheet_id, sheet_name, credentials_file)
 
     # Check for Required columns
-    required_columns = ['id','title','description','language','file','transcript','transcript_language','thumbnail','field_media_oembed_video']
+    required_columns = ['id','title','file','field_media_oembed_video']
+    optional_columns = ['description','language','transcript','transcript_language']
     if all(col in df.columns for col in required_columns):
         logger.info(f"Begin Processing Sheet: {sheet_id},{sheet_name}.")
                 
@@ -795,7 +805,7 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
             print(f"Waiting...")
             time.sleep(1)
 
-        df.to_csv('/var/tmp/dataframe.csv', index=False)
+        #df.to_csv('/var/tmp/dataframe.csv', index=False)
 
         # Save the updated Sheet.
         result,msg = update_google_sheet(df, sheet_id, sheet_name, credentials_file)
