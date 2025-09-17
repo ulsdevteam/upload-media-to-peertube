@@ -655,13 +655,13 @@ def process_row(df,row):
                 thumbnail = True
                 video_thumbnail = row['thumbnail']
                 video_thumbnail_mimetype = get_mimetype(video_thumbnail)
-            else:
-                logger.info(f"Thumbnail is None adding default thumbnail.")
-                if not thumbnail_audio == None:
-                    if os.path.exists(thumbnail_audio):
-                        thumbnail = True
-                        video_thumbnail = thumbnail_audio
-                        video_thumbnail_mimetype = get_mimetype(thumbnail_audio)
+        else:
+            logger.info(f"Thumbnail is None adding default thumbnail.")
+            if not thumbnail_audio == None:
+                if os.path.exists(thumbnail_audio):
+                    thumbnail = True
+                    video_thumbnail = thumbnail_audio
+                    video_thumbnail_mimetype = get_mimetype(thumbnail_audio)
 
         # Derived variables or those that need post processing.
         video_description = f"{video_desc} ({video_id})"
