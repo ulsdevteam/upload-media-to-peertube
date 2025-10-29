@@ -599,20 +599,24 @@ def get_mimetype(infile):
     mime_type, encoding = mimetypes.guess_type(infile)
     return mime_type or 'application/octet_stream'
 
-def process_row(df,row):
+def process_row(df: pd.DataFrame, row):
     # Required Vars for all media objects.
     video_id    = row['id']
     video_title = row['title']
     video_file  = row['file']
 
     # Optional Vars for optional components.
+    video_desc = ""
     if 'description' in df.columns:
         video_desc  = row['description']
+        logger.info(f"Video description column found.")
     else:
         video_desc  = ""
 
+    video_lang = ""
     if 'language' in df.columns:
         video_lang  = row['language']
+        logger.info(f"Video language column found.")
     else:
         video_lang  = ""
 
@@ -627,6 +631,7 @@ def process_row(df,row):
         if not row['file'] == None:
             media_file_exists = True
             video_file = row['file']
+            logger.info(f"Video file column found.")
 
     if (media_file_exists):
         # Determine the optional componets.
@@ -635,6 +640,7 @@ def process_row(df,row):
             if not row['transcript'] == None:
                 transcript = True
                 video_transcript = row['transcript']
+                logger.info(f"Video transcript column found.")
 
         transcript_language = False
         if 'transcript_language' in df.columns:
@@ -666,15 +672,20 @@ def process_row(df,row):
         # Derived variables or those that need post processing.
         video_description = f"{video_desc} ({video_id})"
 
-        if (video_lang == None): # Null
-            video_language = "zxx" # "No linguistic content"
-        else:
-            # Tidy this up a bit...
-            logger.info(f"Language: {video_lang}")
-            if (len(video_lang) == 3):
-                video_language = convert_lang_three_to_two(video_lang)
+        if 'language' in df.columns:
+            if (video_lang == None): # Null
+                video_language = "zxx" # "No linguistic content"
             else:
-                video_language = convert_to_two_letter_code(video_lang)
+                # Tidy this up a bit as it is causing issues.
+                logger.info(f"Language: {video_lang}")
+                if (len(video_lang) == 3):
+                    video_language = convert_lang_three_to_two(video_lang)
+                    logger.info(f"Video language is: {video_language}")
+                else:
+                    video_language = convert_to_two_letter_code(video_lang)
+                    logger.info(f"Video language is: {video_language}")
+        else:
+            logger.warn(f"Video language not found.")
 
         # Get the mimetype of the video_file
         video_mimetype = get_mimetype(video_file)
@@ -805,7 +816,8 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
             logger.info(f"-----------------------------------------------------")
             logger.info(f"Processing: {video_id}")
             print(f"Processing: {video_id}")
-            df = process_row(df,row)
+            df = process_row(df, row)
+
             print(f"Waiting...")
             time.sleep(1)
 
