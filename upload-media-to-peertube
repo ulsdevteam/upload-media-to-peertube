@@ -572,13 +572,19 @@ def update_dataframe(df: pd.DataFrame, match_column: str, match_value, update_co
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description='Migrate media from Islandora 7 to PeerTube.',
+        description='upload-media-to-peertube.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
     # Required arguments:
     parser.add_argument('--config-file', dest="config_file", required=True, help='Path to the YAML configuration file.')
     parser.add_argument('--log-file', dest="log_file", required=True, help='Path to the log file.')
+    parser.add_argument('--dry-run', dest="dry_run", required=False, default=False, choices=['True','False'], help='Run but do not upload.')
+
+    # Groups:
+    env_group = parser.add_mutually_exclusive_group(required=True)
+    env_group.add_argument("--production", action="store_true", help="Use production environment")
+    env_group.add_argument("--review", action="store_true", help="Use review environment")
 
     # Optional arguments:
     parser.add_argument('--in-google-sheet-id', dest="in_gs_id", help='Google Sheet ID.')
@@ -853,21 +859,34 @@ def main():
     # Get the configuration file contents.
     cfg                 = read_yaml_file(args.config_file)
 
+    env_key = "review" if args.production else "production"
+    env_cfg = cfg["environments"][env_key]
+
     # Set PeerTube variables from config file.
-    peertube_instance   = cfg['peertube_instance']
-    peertube_username   = cfg['peertube_username']
-    peertube_password   = cfg['peertube_password']
-    peertube_channel    = cfg['peertube_channel']
+    peertube_instance   = env_cfg['peertube_instance']
+    peertube_username   = env_cfg['peertube_username']
+    peertube_password   = env_cfg['peertube_password']
+    peertube_channel    = env_cfg['peertube_channel']
 
     print(f"PeerTube Channel: {peertube_channel}")
 
     # Set Google variables from config file.
-    google_credentials  = cfg['google_credentials_file']
-    google_sheet_id     = cfg['google_sheet_id']
-    google_sheet_name   = cfg['google_sheet_name']
+    #google_credentials  = cfg['google_credentials_file']
+    #google_sheet_id     = cfg['google_sheet_id']
+    #google_sheet_name   = cfg['google_sheet_name']
     
     # Set Log file path from config file.
     globals()['log_file']            = cfg['log_file']
+
+    # Set Dry_Run from command line.
+    globals()['dry_run'] = args.dry_run
+
+    if (dry_run == False):
+        print(f"Upload")
+    else:
+        print(f"Don't Upload")
+
+    sys.exit()
 
     # Set Default Thumbnails from config file.
     globals()['thumbnail_audio'] = cfg['thumbnail_audio']
@@ -882,16 +901,6 @@ def main():
         google_sheet_name = args.in_gs_name
     if args.log_file is not None:
         log_file = args.log_file
-    if args.peertube_instance is not None:
-        peertube_instance = args.peertube_instance
-    if args.peertube_username is not None:
-        peertube_username = args.peertube_username
-    if args.peertube_password is not None:
-        peertube_password = args.peertube_password
-    if args.peertube_channel is not None:
-        peertube_channel = args.peertube_channel
-
-    # Add required checks for arguements/cfg entries.
 
     globals()['peertube_channel'] = peertube_channel
     globals()['peertube_instance'] = peertube_instance
@@ -903,14 +912,6 @@ def main():
 
     logger.info(f"Processing Sheet: {google_sheet_id}, Tab:{google_sheet_name}")
     logger.info(f"Peertube Instance:{peertube_instance}, Channel:{peertube_channel}")
-
-    # Create the Temporary directory.
-    #try:
-    #    temp_dir = create_temp_dir_at_path(f"/workbench/{username}")
-    #    print(f"Temporary directory created at: {temp_dir}")
-    #    logger.info(f"Temporary directory created at: {temp_dir}")
-    #except (TypeError, OSError) as e:
-    #    print(f"Error: {e}")
 
     # Login to PeerTube.
     logger.info(f"Login to PeerTube: {peertube_instance}, {peertube_username}")
