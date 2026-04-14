@@ -859,7 +859,14 @@ def main():
     # Get the configuration file contents.
     cfg                 = read_yaml_file(args.config_file)
 
-    env_key = "review" if args.production else "production"
+    # Set the environment that we wish to push the videos to.
+    env_key = None
+    if args.production:
+        env_key = "production"
+
+    if args.review:
+        env_key = "review"
+
     env_cfg = cfg["environments"][env_key]
 
     # Set PeerTube variables from config file.
