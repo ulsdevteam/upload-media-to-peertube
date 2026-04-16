@@ -213,8 +213,8 @@ def peertube_login(peertube_instance: str, peertube_username: str, peertube_pass
     except requests.exceptions.RequestException as e:
         if hasattr(e.response, 'text'):
             error_detail = e.response.text
-            raise Exception(f"Login failed: {error_detail}")
-        raise Exception(f"Login failed: {str(e)}")
+            logger.error(f"PeerTube login failed: {error_detail}")
+        logger.error(f"PeerTube login failed: {str(e)}")
         return None
 
 
@@ -824,11 +824,6 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
             print(f"Processing: {video_id}")
             df = process_row(df, row)
 
-            print(f"Waiting...")
-            time.sleep(1)
-
-        #df.to_csv('/var/tmp/dataframe.csv', index=False)
-
         # Save the updated Sheet.
         result,msg = update_google_sheet(df, sheet_id, sheet_name, credentials_file)
         
@@ -844,7 +839,7 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
         print(f"Required columns are: {required_columns}.")
         logger.warning(f"Existing Columns are: {df.columns}.")
         print(f"Existing columns are: {df.columns}.")
-        exit()
+        exit(1)
 
 def main():
     # Setup the log file format.
@@ -893,8 +888,6 @@ def main():
     else:
         print(f"Don't Upload")
 
-    sys.exit()
-
     # Set Default Thumbnails from config file.
     globals()['thumbnail_audio'] = cfg['thumbnail_audio']
     globals()['thumbnail_video'] = cfg['thumbnail_video']    
@@ -926,7 +919,7 @@ def main():
     if access_token is None:
         logger.error(f"Login to PeerTube instance {peertube_instance} failed.")
         print(f"Login to PeerTube instance {peertube_instance} failed.")
-        exit()
+        exit(1)
     else:
         globals()['access_token'] = access_token
         logger.info(f"Login to PeerTube instance {peertube_instance} successful.")
