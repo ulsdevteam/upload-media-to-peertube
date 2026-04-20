@@ -213,8 +213,8 @@ def peertube_login(peertube_instance: str, peertube_username: str, peertube_pass
     except requests.exceptions.RequestException as e:
         if hasattr(e.response, 'text'):
             error_detail = e.response.text
-            logger.error(f"PeerTube login failed: {error_detail}")
-        logger.error(f"PeerTube login failed: {str(e)}")
+            logger.error(f"PeerTube Login failed: {error_detail}")
+        logger.error(f"PeerTube Login failed: {str(e)}")
         return None
 
 
@@ -344,7 +344,6 @@ def convert_to_two_letter_code(language_name: str) -> str:
     """
     if (language_name == ""):
         language_name = "English"
-
     try:
         lang = Language.find(language_name)
         if lang.language and len(lang.language) == 2:
@@ -839,7 +838,7 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
         print(f"Required columns are: {required_columns}.")
         logger.warning(f"Existing Columns are: {df.columns}.")
         print(f"Existing columns are: {df.columns}.")
-        exit(1)
+        exit()
 
 def main():
     # Setup the log file format.
@@ -855,13 +854,12 @@ def main():
     cfg                 = read_yaml_file(args.config_file)
 
     # Set the environment that we wish to push the videos to.
-    env_key = None
     if args.production:
-        env_key = "production"
-
+        env_key = "production"   
     if args.review:
         env_key = "review"
-
+        
+    env_key = "review" if args.production else "production"
     env_cfg = cfg["environments"][env_key]
 
     # Set PeerTube variables from config file.
