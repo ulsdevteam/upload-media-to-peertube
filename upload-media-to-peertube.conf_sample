@@ -1,5 +1,5 @@
 #--------------------------------------------------------------------
-# migrate-i7-media-to-peertube config file.
+# upload-media-to-peertube config file.
 #
 
 #--------------------------------------------------------------------
@@ -7,33 +7,27 @@
 python_exe: /usr/bin/python3
 
 #--------------------------------------------------------------------
-# PeerTube Settings
+# PeerTube Environments
 #--------------------------------------------------------------------
-# Instance URL - Eg. https://peertube.com
-peertube_instance:
-# Username
-peertube_username: 
-# Password
-peertube_password: 
-# The Peertube Channel ID number:
-peertube_channel: 
+environments:
+  production:
+    peertube_instance: https://peertube.com
+    peertube_username: peertube_username
+    peertube_password: peertube_password
+    peeetube_channel:  peertube_channel
 
-#--------------------------------------------------------------------
-# Islandora 7 Settings
-#--------------------------------------------------------------------
-# Islandora URL - Eg. https://sample.edu
-islandora_instance:
-# Islandora username
-islandora_username:
-# Islandora user token
-islandora_token:
+  review:
+    peertube_instance: https://peertube-dev.com
+    peertube_username: peertube_username
+    peertube_password: peertube_password
+    peertube_channel:  peertube_channel
 
 #--------------------------------------------------------------------
 # Google Sheets Settings
 #--------------------------------------------------------------------
 # Google Credentials File location:
-google_credentials_file:
-google_sheet:
+google_credentials_file: google_creds.json
+google_sheet: [google sheet id]
 google_sheet_name: Sheet1
 
 #--------------------------------------------------------------------
@@ -44,6 +38,6 @@ log_file: /var/tmp/output.log
 #--------------------------------------------------------------------
 # Default Thumbnail Files
 #--------------------------------------------------------------------
-thumbnail_audio: /workbench/lib/thumbnails/thumbnail_audio.jpg
-thumbnail_video:
+thumbnail_audio: /thumbnails/thumbnail_audio.jpg
+thumbnail_video: /thumbnails/thumbnail_video.jpg
 
