@@ -820,7 +820,7 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
             if 'transcript_language' not in df.columns:
                 logger.warning(f"Transcript column is present but transcript_language column is missing. Please add the transcript_language column to the sheet.")
                 print(f"Transcript column exists but transcript_language column is missing. Please add the transcript_language column to the sheet.")
-                exit()
+                exit(1)
             else:
                 # Ensure that all values in the transcript_language column are not null if the transcript column has values.
                 if df.transcript_language.notnull().all():
@@ -829,7 +829,7 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
                 else:
                     logger.warning(f"Transcript column exists but transcript_language column has null values. Please fill in all values for the transcript_language column.")
                     print(f"Transcript column exists but transcript_language column has null values. Please fill in all values for the transcript_language column.")
-                    exit()
+                    exit(1)
 
         # Process each row in the sheet
         for index,row in df.iterrows():
@@ -858,7 +858,7 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
         print(f"The optional columns are: {optional_columns}.")
         logger.warning(f"Existing Columns are: {df.columns}.")
         print(f"Existing columns in the sheet are: {df.columns}.")
-        exit()
+        exit(1)
 
 def main():
     # Setup the log file format.
@@ -950,7 +950,7 @@ def main():
     # Exit.
     logger.info(f"Upload complete.")
     print(f"Upload complete.")
-    exit()
+    exit(0)
 
 # Begin
 if __name__ == "__main__":
