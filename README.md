@@ -14,57 +14,30 @@ Sheet Columns:
  | Google Sheet                 | PeerTube |
  |:-----                        |:----- |
  | 'id'                         | This is the PID of the object. |
- | 'title'                      | This is the title displayed of the video. It
-                               will be truncated to 250 characters within
-                               PeerTube. |
- | 'file'                       | Media File that is uploaded (.mp3\|.mkv) --
-                               Must be the full path to the media file.
-                               Usually populated by scan-batch-dir script. |
- | 'field_media_oembed_video'   | Leave this empty -- This field will be updated
-                               by the script with the URL of the PeerTube
-                               object. |
+ | 'title'                      | This is the title displayed of the video. It will be truncated to 250 characters within PeerTube. |
+ | 'file'                       | Media File that is uploaded (.mp3\|.mkv) It must be the full path to the media file. Usually populated by scan-batch-dir script. |
+ | 'field_media_oembed_video'   | Leave this empty -- This field will be updated by the script with the URL of the PeerTube object. |
 
   **Optional Columns**         
 
  | Google Sheet                | PeerTube |
  |:-----                       |:----- |
- | 'description'               | Description -- A description of the media.
-                               This can be empty. However, when uploaded to 
-                               PeerTube the 'id' column will be added as
-                               '({id})' |
- | 'language'                  | Language -- Leave blank for silent (no audio)
-                               media. Eg. English, Spanish, French, etc. |
- | 'thumbnail'                 | Thumbnail file for the media. This would be
-                               the full path to the Thumbnail (.jpg or .png).
-                               Usually populated by scan-batch-dir script. |
- | 'transcript'                | Transcript file for the media. This is the
-                               full path to either a .srt (SubRip) or .vtt
-                               (WebVTT) format file. Usually populated by
-                               scan-batch-dir script. |
- | 'transcript_language'       | If a transcript is provided, this is the
-                               language of the transcript file (English,
-                               Spanish, French, etc.). Usually required if a
-                               transcript file is added. |
+ | 'description'               | Description -- A description of the media. This can be empty. However, when uploaded to PeerTube the 'id' column will be added as '({id})' |
+ | 'language'                  | Language -- Leave blank for silent (no audio) media. Eg. English, Spanish, French, etc. |
+ | 'thumbnail'                 | Thumbnail file for the media. This would be the full path to the Thumbnail (.jpg or .png). Usually populated by scan-batch-dir script. |
+ | 'transcript'                | Transcript file for the media. This is the full path to either a .srt (SubRip) or .vtt (WebVTT) format file. Usually populated by scan-batch-dir script. |
+ | 'transcript_language'       | If a transcript is provided, this is the language of the transcript file (English, Spanish, French, etc.). Usually required if a transcript file is added. |
 
 ## Script Parameters:
 
  | Parameter                | Description |
  |:-----                    |:----- |
- | \--config-file           | Path to the script config file. Contains the
-                            username, password, instance, and Channel for
-                            connecting to Peertube. Contains the path to
-                            the google credentials file (.json), Google
-                            Sheet ID, and Google Sheet Name (tab) for
-                            connecting to a Google Sheet. |
- | \--log-file              | Path to where the generated log file will be
-                            created. |
+ | \--config-file           | Path to the script config file. Contains the username, password, instance, and Channel for connecting to Peertube. Contains the path to the google credentials file (.json), Google Sheet ID, and Google Sheet Name (tab) for connecting to a Google Sheet. |
+ | \--log-file              | Path to where the generated log file will be created. |
  | \--in-google-sheet-id    | The ID number of the Google Sheet. |
- | \--in-google-sheet-name  | The Name of the Tab in the Google Sheet.
-                            (E.g.: Sheet1) |
- | \--in-google-creds-file  | Path to where the Google Credentials File
-                            .json file is located. |
- | \--peertube-instance     | The PeerTube instance URL. E.g.
-                            <https://media.library.pitt.edu> |
+ | \--in-google-sheet-name  | The Name of the Tab in the Google Sheet. (E.g.: Sheet1) |
+ | \--in-google-creds-file  | Path to where the Google Credentials File .json file is located. |
+ | \--peertube-instance     | The PeerTube instance URL. E.g. <https://media.library.pitt.edu> |
  | \--peertube-username     | The PeerTube account username. |
  | \--peertube-password     | The PeerTube account password. |
  | \--peertube-channel      | The PeerTube channel number. |
