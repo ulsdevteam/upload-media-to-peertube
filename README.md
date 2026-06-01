@@ -6,9 +6,6 @@ object URL back into the Google Sheet.
 
 ## Google Sheet requirements:
 
-Sheet Columns:
-
-  ---------------------------------------------------------------------------
   **Required Columns**         
 
  | Google Sheet                 | PeerTube |
