@@ -11,9 +11,7 @@ Sheet Columns:
   ---------------------------------------------------------------------------
   **Required Columns**         
 
- |:-----                        |:----- |
  | **Google Sheet**             | **PeerTube** |
- |:-----                        |:----- |
 
  | 'id'                         | This is the PID of the object. |
 
@@ -31,9 +29,7 @@ Sheet Columns:
 
   **Optional Columns**         
 
- |:-----                       |:----- |
  | **Google Sheet**            | **PeerTube** |
- |:-----                       |:----- |
 
  | 'description'               | Description -- A description of the media.
                                This can be empty. However, when uploaded to 
@@ -57,13 +53,10 @@ Sheet Columns:
                                Spanish, French, etc.). Usually required if a
                                transcript file is added. |
 
- |:--------------------------- |:----- |
 
 ## Script Parameters:
 
- |:------------------------ |:-------------------------------------------
- | Parameter                | Description |
- |:------------------------ |:-------------------------------------------
+ | **Parameter**              | **Description** |
  | \--config-file           | Path to the script config file. Contains the
                             username, password, instance, and Channel for
                             connecting to Peertube. Contains the path to
@@ -90,7 +83,6 @@ Sheet Columns:
  | \--peertube-password     | The PeerTube account password. |
 
  | \--peertube-channel      | The PeerTube channel number. |
- |: ----------------------- |:-----------------------------|
 
 ## Google Credentials File:
 
