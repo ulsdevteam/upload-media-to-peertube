@@ -12,7 +12,7 @@ Sheet Columns:
   **Required Columns**         
 
  | Google Sheet                 | PeerTube |
- | :-----                       | :----- |
+ |:-----                        |:----- |
  | 'id'                         | This is the PID of the object. |
  | 'title'                      | This is the title displayed of the video. It
                                will be truncated to 250 characters within
@@ -27,7 +27,7 @@ Sheet Columns:
   **Optional Columns**         
 
  | Google Sheet                | PeerTube |
- | :-----                      | :----- |
+ |:-----                       |:----- |
  | 'description'               | Description -- A description of the media.
                                This can be empty. However, when uploaded to 
                                PeerTube the 'id' column will be added as
@@ -49,7 +49,7 @@ Sheet Columns:
 ## Script Parameters:
 
  | Parameter                | Description |
- | :-----                   | :----- |
+ |:-----                    |:----- |
  | \--config-file           | Path to the script config file. Contains the
                             username, password, instance, and Channel for
                             connecting to Peertube. Contains the path to
