@@ -41,3 +41,7 @@ log_file: /var/tmp/output.log
 thumbnail_audio: /thumbnails/thumbnail_audio.jpg
 thumbnail_video: /thumbnails/thumbnail_video.jpg
 
+#--------------------------------------------------------------------
+# id_column - the column name containing object identifiers.
+#--------------------------------------------------------------------
+id_column: id
