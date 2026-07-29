@@ -593,6 +593,7 @@ def parse_arguments():
     parser.add_argument('--peertube-username', dest="peertube_username", help='PeerTube account username.')
     parser.add_argument('--peertube-password', dest="peertube_password", help='PeerTube account password.')
     parser.add_argument('--peertube-channel', dest="peertube_channel", help='PeerTube channel number.')
+    parser.add_argument('--id-column', dest="id_column", help='Name of the identifier column in the sheet.')
 
     # Parse the arguments:
     args = parser.parse_args()
@@ -604,9 +605,9 @@ def get_mimetype(infile):
     mime_type, encoding = mimetypes.guess_type(infile)
     return mime_type or 'application/octet_stream'
 
-def process_row(df: pd.DataFrame, row):
+def process_row(df: pd.DataFrame, row, id_column: str):
     # Required Vars for all media objects.
-    video_id    = row['id']
+    video_id    = row[id_column]
     video_title = row['title']
     video_file  = row['file']
 
@@ -788,7 +789,7 @@ def process_row(df: pd.DataFrame, row):
         # Update the dataframe with the peertube_media_url if the upload was successful.
         if (peertube_media_upload_success):
             logger.info(f"Updating dataframe for object {video_id}")
-            updated_df,success,msg = update_dataframe(df,'id',video_id,'field_media_oembed_video',peertube_media_url)
+            updated_df,success,msg = update_dataframe(df,id_column,video_id,'field_media_oembed_video',peertube_media_url)
             if (success):
                 logger.info(f"DataFrame updated with {video_id} - {peertube_media_url}")
                 return updated_df
@@ -800,7 +801,7 @@ def process_row(df: pd.DataFrame, row):
         return df
 
 
-def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
+def process_sheet(sheet_id: str, sheet_name: str, credentials_file, id_column: str):
     logger.info(f"process_sheet - Processing Sheet: {sheet_id},{sheet_name}")
 
     # Read the Sheet
@@ -834,13 +835,13 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file):
         # Process each row in the sheet
         for index,row in df.iterrows():
             # Get Row information.
-            video_id    = row['id']
+            video_id    = row[id_column]
 
             # Proces the row
             logger.info(f"-----------------------------------------------------")
             logger.info(f"Processing: {video_id}")
             print(f"Processing: {video_id}")
-            df = process_row(df, row)
+            df = process_row(df, row, id_column)
 
         # Save the updated Sheet.
         result,msg = update_google_sheet(df, sheet_id, sheet_name, credentials_file)
@@ -908,7 +909,10 @@ def main():
 
     # Set Default Thumbnails from config file.
     globals()['thumbnail_audio'] = cfg['thumbnail_audio']
-    globals()['thumbnail_video'] = cfg['thumbnail_video']    
+    globals()['thumbnail_video'] = cfg['thumbnail_video']
+    
+    # Set the identifier column from the config file, defaulting to 'id' if not present.
+    id_column = cfg.get('id_column', 'id')    
 
     # Override config file variable with command line parameters if they exist.
     if args.in_gs_creds is not None:
@@ -919,6 +923,8 @@ def main():
         google_sheet_name = args.in_gs_name
     if args.log_file is not None:
         log_file = args.log_file
+    if args.id_column is not None:
+        id_column = args.id_column
 
     globals()['peertube_channel'] = peertube_channel
     globals()['peertube_instance'] = peertube_instance
@@ -928,8 +934,9 @@ def main():
     globals()['logger'] = setup_logger('logger', log_file, level=logging.DEBUG, formatter=log_formatter)
     logger.info(f"Begin log.")
 
-    logger.info(f"Processing Sheet: {google_sheet_id}, Tab:{google_sheet_name}")
-    logger.info(f"Peertube Instance:{peertube_instance}, Channel:{peertube_channel}")
+    logger.info(f"Processing Sheet:  {google_sheet_id}, Tab:{google_sheet_name}")
+    logger.info(f"Peertube Instance: {peertube_instance}, Channel:{peertube_channel}")
+    logger.info(f"Identifier column: {id_column}")
 
     # Login to PeerTube.
     logger.info(f"Login to PeerTube: {peertube_instance}, {peertube_username}")
@@ -944,7 +951,7 @@ def main():
 
     # Process the sheet.
     logger.info(f"Begin Processing the sheet.")
-    ret = process_sheet(google_sheet_id,google_sheet_name,google_credentials)
+    ret = process_sheet(google_sheet_id,google_sheet_name,google_credentials,id_column)
     logger.info(f"End Processing the sheet.")
 
     # Exit.
