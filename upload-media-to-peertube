@@ -740,7 +740,7 @@ def process_row(df: pd.DataFrame, row, id_column: str):
         peertube_media_shortUUID = ""
         peertube_media_longUUID = ""
         peertube_media_upload_success = False
-
+        
         upload_result_code,upload_result_json = peertube_upload(access_token, data, files)
         if (upload_result_code == 200):
             #Successful upload.
@@ -808,11 +808,30 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file, id_column: s
     df = read_google_sheet(sheet_id, sheet_name, credentials_file)
 
     # Check for Required columns
-    required_columns = [id_column,'title','file','field_media_oembed_video']
-    optional_columns = ['description','language','transcript','transcript_language']
+    required_columns = ['id','title','file','field_media_oembed_video','language']
+    optional_columns = ['description','transcript','transcript_language']
+    
     if all(col in df.columns for col in required_columns):
         logger.info(f"Begin Processing Sheet: {sheet_id},{sheet_name}.")
-                
+        
+        # If dataframe has transcript column and all values in the transcript column are not null, 
+        # then ensure that the transcript_language column exists as well.
+        if 'transcript' in df.columns and (df['transcript'].notnull().all()):
+            # Ensure that the transcript_language column exists if the transcript column has values.
+            if 'transcript_language' not in df.columns:
+                logger.warning(f"Transcript column is present but transcript_language column is missing. Please add the transcript_language column to the sheet.")
+                print(f"Transcript column exists but transcript_language column is missing. Please add the transcript_language column to the sheet.")
+                exit(1)
+            else:
+                # Ensure that all values in the transcript_language column are not null if the transcript column has values.
+                if df.transcript_language.notnull().all():
+                    # Do nothing
+                    pass
+                else:
+                    logger.warning(f"Transcript column exists but transcript_language column has null values. Please fill in all values for the transcript_language column.")
+                    print(f"Transcript column exists but transcript_language column has null values. Please fill in all values for the transcript_language column.")
+                    exit(1)
+
         # Process each row in the sheet
         for index,row in df.iterrows():
             # Get Row information.
@@ -836,10 +855,11 @@ def process_sheet(sheet_id: str, sheet_name: str, credentials_file, id_column: s
     else:
         logger.warning(f"One or more required columns are missing from the sheet.")
         print(f"One or more required columns are missing from the sheet.")
-        print(f"Required columns are: {required_columns}.")
+        print(f"The required columns are: {required_columns}.")
+        print(f"The optional columns are: {optional_columns}.")
         logger.warning(f"Existing Columns are: {df.columns}.")
-        print(f"Existing columns are: {df.columns}.")
-        exit()
+        print(f"Existing columns in the sheet are: {df.columns}.")
+        exit(1)
 
 def main():
     # Setup the log file format.
@@ -937,7 +957,7 @@ def main():
     # Exit.
     logger.info(f"Upload complete.")
     print(f"Upload complete.")
-    exit()
+    exit(0)
 
 # Begin
 if __name__ == "__main__":
